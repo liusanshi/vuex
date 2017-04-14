@@ -4,8 +4,9 @@ export const mapState = normalizeNamespace((namespace, states) => {
     res[key] = function mappedState () {
       let state = this.$store.state
       let getters = this.$store.getters
-      if (namespace) {
-        const module = getModuleByNamespace(this.$store, 'mapState', namespace)
+      let ns = namespace(this);
+      if (ns) {
+        const module = getModuleByNamespace(this.$store, 'mapState', ns)
         if (!module) {
           return
         }
@@ -24,10 +25,11 @@ export const mapState = normalizeNamespace((namespace, states) => {
 
 export const mapMutations = normalizeNamespace((namespace, mutations) => {
   const res = {}
-  normalizeMap(mutations).forEach(({ key, val }) => {
-    val = namespace + val
+  normalizeMap(mutations).forEach(({ key, val }) => {    
     res[key] = function mappedMutation (...args) {
-      if (namespace && !getModuleByNamespace(this.$store, 'mapMutations', namespace)) {
+      let ns = namespace(this);
+      val = ns + val
+      if (ns && !getModuleByNamespace(this.$store, 'mapMutations', ns)) {
         return
       }
       return this.$store.commit.apply(this.$store, [val].concat(args))
@@ -39,9 +41,10 @@ export const mapMutations = normalizeNamespace((namespace, mutations) => {
 export const mapGetters = normalizeNamespace((namespace, getters) => {
   const res = {}
   normalizeMap(getters).forEach(({ key, val }) => {
-    val = namespace + val
     res[key] = function mappedGetter () {
-      if (namespace && !getModuleByNamespace(this.$store, 'mapGetters', namespace)) {
+      let ns = namespace(this);
+      val = ns + val
+      if (ns && !getModuleByNamespace(this.$store, 'mapGetters', ns)) {
         return
       }
       if (!(val in this.$store.getters)) {
@@ -59,9 +62,10 @@ export const mapGetters = normalizeNamespace((namespace, getters) => {
 export const mapActions = normalizeNamespace((namespace, actions) => {
   const res = {}
   normalizeMap(actions).forEach(({ key, val }) => {
-    val = namespace + val
     res[key] = function mappedAction (...args) {
-      if (namespace && !getModuleByNamespace(this.$store, 'mapActions', namespace)) {
+      let ns = namespace(this);
+      val = ns + val
+      if (ns && !getModuleByNamespace(this.$store, 'mapActions', ns)) {
         return
       }
       return this.$store.dispatch.apply(this.$store, [val].concat(args))
@@ -78,13 +82,21 @@ function normalizeMap (map) {
 
 function normalizeNamespace (fn) {
   return (namespace, map) => {
-    if (typeof namespace !== 'string') {
+    if(typeof namespace !== 'function'){
+      return fn((vm) => {
+          let ns = namespace(vm);
+          if (ns && ns.charAt(ns.length - 1) !== '/') {
+              ns += '/';
+          }
+          return ns;
+      }, map);
+    } else if (typeof namespace !== 'string') {
       map = namespace
       namespace = ''
     } else if (namespace.charAt(namespace.length - 1) !== '/') {
       namespace += '/'
     }
-    return fn(namespace, map)
+    return fn(() => namespace, map)
   }
 }
 
